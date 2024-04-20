@@ -90,6 +90,21 @@ class ChatCommand:
         logging.info(f"Extracted suggestions: {suggestions}")
         return suggestions
 
+    def clean_suggestions(self, suggestions):
+        """
+        Performs some cleaning as LLM's output may be in wrong format.
+        :param suggestions:
+        :return:
+        """
+        cleaned_suggestions = []
+        for suggestion in suggestions:
+            suggestion = suggestion.strip()
+            if suggestion:
+                if suggestion.startswith("```") or suggestion.lower() == "or":
+                    continue
+                cleaned_suggestions.append(suggestion)
+        return cleaned_suggestions
+
     def choose_command(self, suggestions):
         if len(suggestions) > 1:
             print("Select a command to execute:")
@@ -159,6 +174,7 @@ def main():
     else:
         print("Attempting to fix the last command.")
         suggestions = chat.fix_command(args.command, args.output, args.clipboard)
+    suggestions = chat.clean_suggestions(suggestions)
     chat.choose_command(suggestions)
 
 
