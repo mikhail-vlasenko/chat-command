@@ -102,6 +102,10 @@ class ChatCommand:
             if suggestion:
                 if suggestion.startswith("```") or suggestion.lower() == "or":
                     continue
+
+                # sometimes the model "indexes" the suggestions
+                suggestion = suggestion.lstrip('0123456789. ')
+
                 cleaned_suggestions.append(suggestion)
         return cleaned_suggestions
 

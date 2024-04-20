@@ -1,11 +1,19 @@
 function chat() {
     local last_command=$(fc -ln -1)
-    echo "Rerunning: $last_command"
-    # Execute the last command and capture both stdout and stderr
-    local output=$(eval "$last_command" 2>&1)
+
+    # Check if the last command starts with "chat "
+    if [[ "$last_command" =~ ^[[:space:]]*chat[[:space:]] ]]; then
+        echo "Refusing to rerun 'chat' command."
+        local output=""
+    else
+        echo "Rerunning: $last_command"
+        # Execute the last command and capture both stdout and stderr
+        local output=$(eval "$last_command" 2>&1)
+    fi
+
 
     # Pass all arguments to the Python script along with last command and its output
-    python3 "$CHAT_COMMAND_PATH"/basic_chat.py "$last_command" "$output" "$@"
+    $CHAT_COMMAND_PYTHON "$CHAT_COMMAND_PATH"/basic_chat.py "$last_command" "$output" "$@"
 
     # get the command from the file
     local command_file_path="$CHAT_COMMAND_PATH/command_to_execute.txt"
