@@ -12,9 +12,11 @@ export CHAT_COMMAND_PATH="$HOME/chat_command"
 source install_chat_command.sh
 echo "export CHAT_COMMAND_PATH="$HOME/chat_command"" >> ~/.bashrc
 echo "source "$CHAT_COMMAND_PATH"/chat_wrapper.sh" >> ~/.bashrc
-echo "export OPENAI_API_KEY="{os.getenv('OPENAI_API_KEY')}" >> ~/.bashrc
+echo "export OPENAI_API_KEY="{os.getenv('OPENAI_API_KEY')}"" >> ~/.bashrc
 source ~/.bashrc
-echo "Installation complete. You can now use the chat command." """
+echo -e "\nInstallation complete. You can now use the chat command. \U1F916"
+"""
 
 if __name__ == "__main__":
     pyperclip.copy(INSTALL_STRING)
+    print("Installation string is copied to clipboard.")
