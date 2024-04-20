@@ -8,7 +8,10 @@ import logging
 import examples
 
 
-logging.basicConfig(filename='chat_command.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    filename=f'{os.getenv("CHAT_COMMAND_PATH")}/basic.log',
+    level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 
 system_prompt = """
@@ -32,8 +35,9 @@ class ChatCommand:
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
+        self.path = os.getenv("CHAT_COMMAND_PATH")
 
-        self.result_file_path = os.path.expanduser('~/chat_command/command_to_execute.txt')
+        self.result_file_path = os.path.join(self.path, 'command_to_execute.txt')
 
     def get_llm_response(self, data):
         request_data = {
@@ -75,7 +79,7 @@ class ChatCommand:
         prompt += "\nIf the provided information is enough, suggest a command to achieve the goal."
         prompt += ("\nIn case you believe more context is needed, produce a command that, "
                    "when executed, would provide this context as its output. "
-                   "Append \"[context]\" in the beginning of such command.")
+                   "Append \"#for context#\" in the beginning of such command.")
 
         prompt += examples.context_request()
 
@@ -112,8 +116,8 @@ class ChatCommand:
                 print("Aborting.")
 
     def send_command(self, command):
-        if command.startswith("[context]"):
-            command = command[9:].strip()
+        if command.startswith("#for context#"):
+            command = command[len("#for context#"):].strip()
 
         with open(self.result_file_path, 'w') as file:
             file.write(command + '\n')

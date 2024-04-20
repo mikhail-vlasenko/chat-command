@@ -5,10 +5,10 @@ function chat() {
     local output=$(eval "$last_command" 2>&1)
 
     # Pass all arguments to the Python script along with last command and its output
-    python3 basic_chat.py "$last_command" "$output" "$@"
+    python3 "$CHAT_COMMAND_PATH"/basic_chat.py "$last_command" "$output" "$@"
 
     # get the command from the file
-    local command_file_path="$HOME/chat_command/command_to_execute.txt"
+    local command_file_path="$CHAT_COMMAND_PATH/command_to_execute.txt"
     if [[ -s "$command_file_path" ]]; then
         # Read the command from the file
         read -r command < "$command_file_path"
