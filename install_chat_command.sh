@@ -4,6 +4,7 @@ if [ -z "${CHAT_COMMAND_PATH}" ]; then
 fi
 
 mkdir -p "$CHAT_COMMAND_PATH"
+mkdir -p "$CHAT_COMMAND_PATH/chat_history"
 
 cp chat_wrapper.sh "$CHAT_COMMAND_PATH"
 cp basic_chat.py "$CHAT_COMMAND_PATH"

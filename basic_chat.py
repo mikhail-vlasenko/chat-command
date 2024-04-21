@@ -2,8 +2,9 @@ import sys
 import os
 import requests
 import argparse
-import pyperclip
 import logging
+import time
+import pickle
 
 import examples
 
@@ -14,13 +15,15 @@ logging.basicConfig(
 )
 
 
-system_prompt = """
-You are a helpful system that assists a user with shell commands.
-Start your response should contain only the commands. No explanations or additional information.
+SYSTEM_PROMPT = """
+You are a helpful expert that assists the user with shell commands.
+Your response should contain only the commands. No explanations or additional information.
 All commands that need to be executed together should be on the same line.
 Do not start your responses with the cd command into the current directory.
 The commands should be complete and executable as they are. So do not use placeholders like <your_file>.
+
 If, given the context, multiple responses are equally likely, output up to 3 possible variants, separated by the new line characters.
+In case you believe more context is needed, produce a command that, when executed, would provide this context as its output. Append \"# for context\" at the end of such command.
 """
 
 
@@ -38,6 +41,11 @@ class ChatCommand:
         self.path = os.getenv("CHAT_COMMAND_PATH")
 
         self.result_file_path = os.path.join(self.path, 'command_to_execute.txt')
+        self.conv_id = int(os.environ.get("CHAT_COMMAND_CONV_ID", time.time()))
+        self.history_file_path = os.path.join(self.path, "chat_history", f"{self.conv_id}.pkl")
+
+        self.system_prompt = SYSTEM_PROMPT + "\n" + examples.context_request()
+        self.messages = []
 
     def get_llm_response(self, data):
         request_data = {
@@ -48,46 +56,39 @@ class ChatCommand:
         request_data.update(data)
         url = "https://api.openai.com/v1/chat/completions"
         logging.info(f"Asking {request_data['model']} for suggestions.")
-        logging.info(f"Sending request with prompt: {request_data['messages'][-1]['content']}")
+        logging.info(f"Sending request with prompt:\n{request_data['messages'][-1]['content']}")
         response = requests.post(url, json=request_data, headers=self.headers)
         logging.info(f"Received response: {response.json()}")
         return response.json()
 
     def fix_command(self, command, output, clipboard=False):
-        prompt = f"Shell command troubleshooting: \nCommand: {command}\n"
-        prompt += f"Output:\n{output}\nend of output."
-        prompt += f"\nThe current directory is: {os.getcwd()}"
+        prompt = f"Please fix this shell command:"
+        prompt += f"\n{command}"
+        prompt += f"\nThis command's current output:\n{output}\nend of output."
+        # prompt += f"\nThe current directory is: {os.getcwd()}"
         prompt += self.add_clipboard_content(clipboard)
-
         prompt += "\nSuggest a command to fix the issue."
-        prompt += "\nDo not start the fixes with the cd command into the current directory."
 
-        data = {"messages": self.make_chat_history([
-            {"role": "user", "content": prompt}
-        ])}
+        self.messages = self.make_chat_history(prompt)
+        data = {"messages": self.messages}
+
         suggestions = self.get_llm_response(data)['choices'][0]['message']['content'].splitlines()
-        logging.info(f"Extracted suggestions: {suggestions}")
         return suggestions
 
     def command_from_text(self, text, last_command, output, clipboard=False):
         prompt = f"I want to do the following: {text}"
         prompt += f"\nHere is the last executed command (it may not be helpful to this request): {last_command}"
         prompt += f"\nOutput of the last command (may also not be helpful):\n{output}\nend of output."
-        prompt += f"\nThe current directory is: {os.getcwd()}"
+        # prompt += f"\nThe current directory is: {os.getcwd()}"
         prompt += self.add_clipboard_content(clipboard)
 
         prompt += "\nIf the provided information is enough, suggest a command to achieve the goal."
-        prompt += ("\nIn case you believe more context is needed, produce a command that, "
-                   "when executed, would provide this context as its output. "
-                   "Append \"#for context#\" in the beginning of such command.")
+        prompt += "\nOtherwise, suggest a command that can provide the necessary context."
 
-        prompt += examples.context_request()
+        self.messages = self.make_chat_history(prompt)
+        data = {"messages": self.messages}
 
-        data = {"messages": self.make_chat_history([
-            {"role": "user", "content": prompt}
-        ])}
         suggestions = self.get_llm_response(data)['choices'][0]['message']['content'].splitlines()
-        logging.info(f"Extracted suggestions: {suggestions}")
         return suggestions
 
     def clean_suggestions(self, suggestions):
@@ -100,16 +101,26 @@ class ChatCommand:
         for suggestion in suggestions:
             suggestion = suggestion.strip()
             if suggestion:
-                if suggestion.startswith("```") or suggestion.lower() == "or":
+                if (
+                        suggestion.startswith("```") or
+                        suggestion.startswith("#") or
+                        suggestion.lower() == "or"
+                ):
                     continue
 
                 # sometimes the model "indexes" the suggestions
-                suggestion = suggestion.lstrip('0123456789. ')
+                if not suggestion.startswith("./"):
+                    suggestion = suggestion.lstrip('0123456789. -')
 
                 cleaned_suggestions.append(suggestion)
         return cleaned_suggestions
 
     def choose_command(self, suggestions):
+        self.messages.append({
+            "role": "assistant",
+            "content": "\n".join(suggestions)
+        })
+
         if len(suggestions) > 1:
             print("Select a command to execute:")
             for index, suggestion in enumerate(suggestions, start=1):
@@ -135,30 +146,52 @@ class ChatCommand:
                 print("Aborting.")
 
     def send_command(self, command):
-        if command.startswith("#for context#"):
-            command = command[len("#for context#"):].strip()
+        context_flag = False
+        if "# for context" in command:
+            context_flag = True
+
+        # cut off the comment
+        command = command.split("#")[0].strip()
 
         with open(self.result_file_path, 'w') as file:
-            file.write(command + '\n')
+            file.write(f"{command}\n{self.conv_id}\n{int(context_flag)}\n")
+
+        self.messages.append({
+            "role": "user",
+            "content": f"I executed {command}\n"
+        })
+        self.write_history()
 
         logging.info(f"Command written to file: {command}")
 
     @staticmethod
     def add_clipboard_content(clipboard):
         if clipboard:
+            import pyperclip
+
             print("Reading clipboard content.")
             clipboard_content = pyperclip.paste()
             return f"\nClipboard content that might be helpful:\n{clipboard_content}\nend of clipboard content."
         return ""
 
-    @staticmethod
-    def make_chat_history(messages):
-        chat_history = [{"role": "system", "content": system_prompt}]
-        for message in messages:
-            role = message['role']
-            content = message['content']
-            chat_history.append({"role": role, "content": content})
+    def make_chat_history(self, user_message):
+        chat_history = [{"role": "system", "content": self.system_prompt}]
+        if os.environ.get("CHAT_COMMAND_CONV_ID"):
+            with open(self.history_file_path, 'rb') as file:
+                chat_history.extend(pickle.load(file))
+            logging.info(f"Chat history loaded from file: {self.history_file_path}")
+
+        if chat_history[-1]["role"] == "user":
+            # the history ends on the user message
+            chat_history[-1]["content"] += "\n" + user_message
+        else:
+            chat_history.append({"role": "user", "content": user_message})
         return chat_history
+
+    def write_history(self):
+        # system prompt is not written, as it is assumed to be always the same
+        with open(self.history_file_path, 'wb') as file:
+            pickle.dump(self.messages[1:], file)
 
 
 def main():
@@ -179,6 +212,7 @@ def main():
         print("Attempting to fix the last command.")
         suggestions = chat.fix_command(args.command, args.output, args.clipboard)
     suggestions = chat.clean_suggestions(suggestions)
+    logging.info(f"Extracted suggestions: {suggestions}")
     chat.choose_command(suggestions)
 
 
