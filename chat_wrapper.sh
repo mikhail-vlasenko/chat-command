@@ -1,15 +1,28 @@
 function chat() {
-    local no_exec=false
-    local output="<output is not available>"
-
-    while getopts 'n' opt; do
-        case "$opt" in
-            n) no_exec=true ;;
-            ?) ;;
-        esac
-    done
+    contains_help_flag() {
+        for arg in "$@"; do
+            if [[ "$arg" == "-h" || "$arg" == "--help" ]]; then
+                return 0  # True, help flag found
+            fi
+        done
+        return 1  # False, help flag not found
+    }
+    # Check if the help option is present
+    if contains_help_flag "$@"; then
+        # Display the help message (not let it get consumed by bash)
+        $CHAT_COMMAND_PYTHON "$CHAT_COMMAND_PATH"/handle_cli_args.py "$@"
+        return
+    else
+        # delegate argument parsing to an actual programming language
+        all_args=$($CHAT_COMMAND_PYTHON "$CHAT_COMMAND_PATH"/handle_cli_args.py "$@")
+        # Set IFS to tab to split the output properly (newline just refuses to work for some reason)
+        IFS=$'\t'
+        # Read the output into separate variables
+        read -r query clipboard no_exec with_context <<< "$all_args"
+    fi
 
     local last_command=$(fc -ln -1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') # Trim whitespaces
+    local output="<output is not available>"
 
     # Check if the last command starts with "chat "
     if [[ "$last_command" =~ ^[[:space:]]*chat[[:space:]] ]]; then
@@ -42,7 +55,7 @@ function chat() {
     fi
 
     # Pass all arguments to the Python script along with last command and its output
-    $CHAT_COMMAND_PYTHON "$CHAT_COMMAND_PATH"/basic_chat.py "$last_command" "$output" "$@"
+    $CHAT_COMMAND_PYTHON "$CHAT_COMMAND_PATH"/basic_chat.py "$last_command" "$output" "$query" "$clipboard" "$with_context"
 
     # get the command to be executed from the file
     local command_file_path="$CHAT_COMMAND_PATH/command_to_execute.txt"
@@ -81,7 +94,7 @@ function chat() {
             # we can save the user calling chat again.
             # The environment variables will allow chat to see the result.
             echo "📝 Context obtained, calling chat again."
-            chat -n
+            chat -n --with_context
         fi
     else
         echo "❌ No command to execute."

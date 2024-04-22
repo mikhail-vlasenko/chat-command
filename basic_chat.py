@@ -79,7 +79,7 @@ class ChatCommand:
         if self.dont_mention_last_command:
             prompt += f"Something still went wrong."
         else:
-            prompt += f"\nPlease fix this shell command:"
+            prompt += f"Please fix this shell command:"
             prompt += f"\n{self.last_command}"
             prompt += f"\nThis command's current output:\n{self.last_output}\nend of output."
         # prompt += f"\nThe current directory is: {os.getcwd()}"
@@ -103,10 +103,17 @@ class ChatCommand:
 
     def make_prompt_additional_instructions(self, text):
         print("🤖 Considering the additional instructions...")
+        # do not include the last command, as nothing was executed since the last llm request
         prompt = self.init_prompt(include_last_command=False)
         prompt += f"I do not want to execute any of these commands. Here are some additional instructions:"
         prompt += f"\n{text}"
         prompt += f"\nConsidering this, suggest up to 3 commands that would be helpful."
+        return prompt
+
+    def make_prompt_received_context(self):
+        print("🤖 Analyzing the context...")
+        prompt = self.init_prompt(include_last_command=True)
+        prompt += f"Given this new context, continue solving the task."
         return prompt
 
     def produce_llm_command(self, request_type, **kwargs):
@@ -123,6 +130,8 @@ class ChatCommand:
             prompt = self.make_prompt_suggest_from_text(**kwargs)
         elif request_type == "additional_instructions":
             prompt = self.make_prompt_additional_instructions(**kwargs)
+        elif request_type == "received_context":
+            prompt = self.make_prompt_received_context()
         else:
             raise ValueError(f"Unknown request type: {request_type}")
 
@@ -217,6 +226,7 @@ class ChatCommand:
         """
         prompt = ""
         if self.messages[-1]["role"] == "user":
+            # this ensures we don't write 2 user messages in a row or overwrite some information
             prompt = self.messages[-1]["content"] + "\n"
             self.messages.pop()
         if include_last_command and self.last_chat_command:
@@ -249,6 +259,12 @@ class ChatCommand:
         :return:
         """
         cleaned_suggestions = []
+        # merge lines if model outputted # for context on a new line
+        for i in range(1, len(suggestions)):
+            if suggestions[i].startswith("# for context"):
+                suggestions[i-1] += " " + suggestions[i]
+                suggestions[i] = ""
+
         for suggestion in suggestions:
             suggestion = suggestion.strip()
             if suggestion:
@@ -288,16 +304,20 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("command")
     parser.add_argument("output")
-    parser.add_argument("query", nargs='?', default="", help="Description of what needs to be done (optional)")
-    parser.add_argument("-c", "--clipboard", action="store_true",
-                        help="Include clipboard content in the prompt for suggestions")
-    parser.add_argument("-n", "--no_rerun", action="store_true",
-                        help="Do not rerun the last command")
+    parser.add_argument("query", help="Description of what needs to be done (or empty for nothing)")
+    parser.add_argument("clipboard", type=int, choices=[0, 1],
+                        help="Include clipboard content in the prompt for suggestions (0 or 1)")
+    parser.add_argument("with_context", type=int, choices=[0, 1],
+                        help="This is a follow-up request that provides context")
 
     args = parser.parse_args()
+    args.clipboard = bool(args.clipboard)
+    args.with_context = bool(args.with_context)
 
     chat = ChatCommand(args.command, args.output)
-    if args.query:
+    if args.with_context:
+        chat.produce_llm_command("received_context")
+    elif args.query:
         chat.produce_llm_command("suggest_from_text", text=args.query, clipboard=args.clipboard)
     else:
         chat.produce_llm_command("fix_command", clipboard=args.clipboard)
