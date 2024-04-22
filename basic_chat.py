@@ -28,7 +28,7 @@ In case you believe more context is needed, produce a command that, when execute
 
 
 class ChatCommand:
-    def __init__(self):
+    def __init__(self, last_command, last_output):
         self.api_key = os.getenv("OPENAI_API_KEY")
         if not self.api_key:
             print("OpenAI API key not found. Please set the OPENAI_API_KEY environment variable.")
@@ -41,8 +41,20 @@ class ChatCommand:
         self.path = os.getenv("CHAT_COMMAND_PATH")
 
         self.result_file_path = os.path.join(self.path, 'command_to_execute.txt')
-        self.conv_id = int(os.environ.get("CHAT_COMMAND_CONV_ID", time.time()))
+        cond_id = os.getenv("CHAT_COMMAND_CONV_ID")
+        if cond_id:
+            self.conv_id = int(cond_id)
+        else:
+            self.conv_id = int(time.time())
         self.history_file_path = os.path.join(self.path, "chat_history", f"{self.conv_id}.pkl")
+
+        self.last_chat_command = os.getenv("CHAT_COMMAND_LAST_COMMAND", "")
+        self.last_chat_output = self.truncate_output(os.getenv("CHAT_COMMAND_LAST_OUTPUT", ""))
+        self.last_command = last_command
+        self.last_output = self.truncate_output(last_output)
+        # if the last command was the one executed by `chat` (and was not reran),
+        # we dont need to mention it after our request, as it will be in the chat history already
+        self.dont_mention_last_command = self.last_chat_command == self.last_command and self.last_output == ""
 
         self.system_prompt = SYSTEM_PROMPT + "\n" + examples.context_request()
         self.messages = []
@@ -61,10 +73,14 @@ class ChatCommand:
         logging.info(f"Received response: {response.json()}")
         return response.json()
 
-    def fix_command(self, command, output, clipboard=False):
-        prompt = f"Please fix this shell command:"
-        prompt += f"\n{command}"
-        prompt += f"\nThis command's current output:\n{output}\nend of output."
+    def fix_command(self, clipboard=False):
+        if self.dont_mention_last_command:
+            prompt = f"Something still went wrong."
+        else:
+            prompt = f"Please fix this shell command:"
+            prompt += f"\n{self.last_command}"
+            prompt += f"\nThis command's current output:\n{self.last_output}\nend of output."
+
         # prompt += f"\nThe current directory is: {os.getcwd()}"
         prompt += self.add_clipboard_content(clipboard)
         prompt += "\nSuggest a command to fix the issue."
@@ -75,10 +91,11 @@ class ChatCommand:
         suggestions = self.get_llm_response(data)['choices'][0]['message']['content'].splitlines()
         return suggestions
 
-    def command_from_text(self, text, last_command, output, clipboard=False):
+    def command_from_text(self, text, clipboard=False):
         prompt = f"I want to do the following: {text}"
-        prompt += f"\nHere is the last executed command (it may not be helpful to this request): {last_command}"
-        prompt += f"\nOutput of the last command (may also not be helpful):\n{output}\nend of output."
+        if not self.dont_mention_last_command:
+            prompt += f"\nHere is the last executed command (it may not be helpful to this request): {self.last_command}"
+            prompt += f"\nOutput of the last command (may also not be helpful):\n{self.last_output}\nend of output."
         # prompt += f"\nThe current directory is: {os.getcwd()}"
         prompt += self.add_clipboard_content(clipboard)
 
@@ -156,10 +173,6 @@ class ChatCommand:
         with open(self.result_file_path, 'w') as file:
             file.write(f"{command}\n{self.conv_id}\n{int(context_flag)}\n")
 
-        self.messages.append({
-            "role": "user",
-            "content": f"I executed {command}\n"
-        })
         self.write_history()
 
         logging.info(f"Command written to file: {command}")
@@ -175,23 +188,35 @@ class ChatCommand:
         return ""
 
     def make_chat_history(self, user_message):
+        """
+        Creates the chat history to be sent to the model.
+        :param user_message:
+        :return:
+        """
         chat_history = [{"role": "system", "content": self.system_prompt}]
         if os.environ.get("CHAT_COMMAND_CONV_ID"):
             with open(self.history_file_path, 'rb') as file:
                 chat_history.extend(pickle.load(file))
             logging.info(f"Chat history loaded from file: {self.history_file_path}")
 
-        if chat_history[-1]["role"] == "user":
-            # the history ends on the user message
-            chat_history[-1]["content"] += "\n" + user_message
-        else:
-            chat_history.append({"role": "user", "content": user_message})
+        full_message = ""
+        if self.last_chat_command:
+            full_message += f"I executed {self.last_chat_command}"
+            full_message += f"\nThe output was:\n{self.last_chat_output}\nend of output."
+        full_message += f"\n{user_message}"
+        chat_history.append({"role": "user", "content": full_message})
         return chat_history
 
     def write_history(self):
         # system prompt is not written, as it is assumed to be always the same
         with open(self.history_file_path, 'wb') as file:
             pickle.dump(self.messages[1:], file)
+
+    def truncate_output(self, output):
+        max_length = 1000
+        if len(output) > max_length:
+            return output[:max_length//2] + "\n...\n" + output[-(max_length//2):]
+        return output
 
 
 def main():
@@ -204,13 +229,13 @@ def main():
 
     args = parser.parse_args()
 
-    chat = ChatCommand()
+    chat = ChatCommand(args.command, args.output)
     if args.query:
         print("Generating suggestions based on the provided query.")
-        suggestions = chat.command_from_text(args.query, args.command, args.output, args.clipboard)
+        suggestions = chat.command_from_text(args.query, args.clipboard)
     else:
         print("Attempting to fix the last command.")
-        suggestions = chat.fix_command(args.command, args.output, args.clipboard)
+        suggestions = chat.fix_command(args.clipboard)
     suggestions = chat.clean_suggestions(suggestions)
     logging.info(f"Extracted suggestions: {suggestions}")
     chat.choose_command(suggestions)

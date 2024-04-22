@@ -10,7 +10,7 @@ sudo apt install python3-pip &&
 pip3 install -r requirements.txt &&
 export CHAT_COMMAND_PATH="$HOME/.chat_command" &&
 export OPENAI_API_KEY="{os.getenv('OPENAI_API_KEY')}" &&
-python3 setup.py --persistent --skip_alias &&
+python3 setup.py --persistent &&
 cd .. && 
 rm -rf chat-command && 
 source ~/.bashrc &&

@@ -38,12 +38,14 @@ def check_and_set_api_key():
     return api_key
 
 
-def update_shell_config(chat_command_path, api_key, persistent_flag=False, skip_alias=False):
+def update_shell_config(chat_command_path, api_key, persistent_flag=False):
+    detected_profile_file = '~/.bashrc'
+    if os.getenv('SHELL').endswith('zsh') and os.path.exists(os.path.expanduser('~/.zshrc')):
+        detected_profile_file = '~/.zshrc'
     shell_config_options = {
-        '1': '~/.bashrc',
-        '2': '~/.zshrc',
-        '3': 'Enter custom path',
-        '4': 'Skip this step'
+        '1': detected_profile_file,
+        '2': 'Enter custom path',
+        '3': 'Skip this step'
     }
 
     if persistent_flag:
@@ -52,11 +54,11 @@ def update_shell_config(chat_command_path, api_key, persistent_flag=False, skip_
         print("Choose your shell configuration file for persistent installation:")
         for key, value in shell_config_options.items():
             print(f'{key}: {value}')
-        choice = input("Your choice ([1]-4): ") or '1'
-        if choice == '3':
+        choice = input("Your choice ([1]-3): ") or '1'
+        if choice == '2':
             config_path = input("Enter the path to your shell configuration file: ")
             config_path = os.path.expanduser(config_path)
-        elif choice == '4':
+        elif choice == '3':
             return
         else:
             config_path = os.path.expanduser(shell_config_options.get(choice, ''))
@@ -67,8 +69,6 @@ def update_shell_config(chat_command_path, api_key, persistent_flag=False, skip_
         f'source $CHAT_COMMAND_PATH"/chat_wrapper.sh"',
         f'export OPENAI_API_KEY="{api_key}"'
     ]
-    if not skip_alias:
-        settings.append('chat_install() { python3 $CHAT_COMMAND_PATH/quick_install.py }')
 
     with open(config_path, 'a+') as file:
         file.seek(0)
@@ -94,9 +94,6 @@ def main():
     parser.add_argument("--persistent",
                         help="Automatically select the default shell configuration without prompt",
                         action='store_true')
-    parser.add_argument("--skip_alias",
-                        help="Skip adding the chat_install alias to the shell configuration",
-                        action='store_true')
     args = parser.parse_args()
 
     chat_command_path = check_and_set_chat_command_path(args.chat_command_path)
@@ -108,7 +105,7 @@ def main():
     else:
         api_key = check_and_set_api_key()
 
-    update_shell_config(chat_command_path, api_key, args.persistent, args.skip_alias)
+    update_shell_config(chat_command_path, api_key, args.persistent)
     print(f'Installation complete. '
           f'You may need to restart your shell or run\n'
           f'source "{chat_command_path}/chat_wrapper.sh"\n'
