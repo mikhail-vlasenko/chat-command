@@ -1,12 +1,20 @@
 function chat() {
-    local last_command=$(fc -ln -1)
+    local no_exec=false
+    local output="<output is not available>"
+
+    while getopts 'n' opt; do
+        case "$opt" in
+            n) no_exec=true ;;
+            ?) ;;
+        esac
+    done
+
+    local last_command=$(fc -ln -1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') # Trim whitespaces
 
     # Check if the last command starts with "chat "
     if [[ "$last_command" =~ ^[[:space:]]*chat[[:space:]] ]]; then
         echo "⏭️ Refusing to rerun 'chat' command."
-        local last_command=""
-        local output=""
-    # Check if the last command is the same as the last executed chat_command,
+    # Check if the last command is the same as the last command suggested and executed by 'chat',
     # and it is not run often (more than once in the last 5 commands).
     # Then, we can skip it
     elif [[ "$last_command" == "$CHAT_COMMAND_LAST_COMMAND" ]]; then
@@ -19,16 +27,20 @@ function chat() {
             echo "⏭️ This command was the last executed by 'chat', skipping rerun."
             local output=""
         else
-            echo "🔄 This command was executed $count times in the last 5 commands, rerunning."
-            local output=$(eval "$last_command" 2>&1)
+            if ! $no_exec; then
+                echo "🔄 This command was executed $count times in the last 5 commands, rerunning."
+                local output=$(eval "$last_command" 2>&1)
+            fi
         fi
     else
-        echo "🔄 Rerunning: $last_command"
-        # Execute the last command and capture both stdout and stderr
-        local output=$(eval "$last_command" 2>&1)
+        # skip this if flag -n is passed
+        if ! $no_exec; then
+            echo "🔄 Rerunning: $last_command"
+            # Execute the last command and capture both stdout and stderr
+            local output=$(eval "$last_command" 2>&1)
+        fi
     fi
 
-    echo "🤖 Querying the model..."
     # Pass all arguments to the Python script along with last command and its output
     $CHAT_COMMAND_PYTHON "$CHAT_COMMAND_PATH"/basic_chat.py "$last_command" "$output" "$@"
 
@@ -37,29 +49,40 @@ function chat() {
     if [[ -s "$command_file_path" ]]; then
         # Open the file descriptor (using descriptor 3 as its right after the standard ones)
         exec 3< "$command_file_path"
-        # Read the chat_command from the first line
-        read -r chat_command <&3
+        # Read the command from the first line
+        read -r command <&3
         # Read the conversation id from the second line (can be used by next requests in this session)
         export CHAT_COMMAND_CONV_ID=""
         read -r CHAT_COMMAND_CONV_ID <&3
+        # Read whether the command is for context or not
+        local command_context_flag
+        read -r command_context_flag <&3
         # Close the file descriptor
         exec 3<&-
 
         # Add the command to the history
         if [[ -n $ZSH_VERSION ]]; then
             # Zsh-specific command (i hate that i have to do it this way)
-            print -s "$chat_command"
+            print -s "$command"
         else
             # Bash or other shell command
-            history -s "$chat_command"
+            history -s "$command"
         fi
 
-        eval "$chat_command" | tee /tmp/output.txt
-        export CHAT_COMMAND_LAST_COMMAND="$chat_command"
-        export CHAT_COMMAND_LAST_OUTPUT=$(< /tmp/output.txt)
+        eval "$command" | tee /tmp/chat_command_output.txt
+        export CHAT_COMMAND_LAST_COMMAND="$command"
+        export CHAT_COMMAND_LAST_OUTPUT=$(col -b < /tmp/chat_command_output.txt)
 
         # its single use
         rm -f "$command_file_path"
+
+        if [[ "$command_context_flag" -eq 1 ]]; then
+            # the previous command was for context, so once it was obtained,
+            # we can save the user calling chat again.
+            # The environment variables will allow chat to see the result.
+            echo "📝 Context obtained, calling chat again."
+            chat -n
+        fi
     else
         echo "❌ No command to execute."
     fi
