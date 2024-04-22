@@ -55,7 +55,7 @@ function chat() {
     fi
 
     # Pass all arguments to the Python script along with last command and its output
-    $CHAT_COMMAND_PYTHON "$CHAT_COMMAND_PATH"/basic_chat.py "$last_command" "$output" "$query" "$clipboard" "$with_context"
+    $CHAT_COMMAND_PYTHON "$CHAT_COMMAND_PATH"/chat_command.py "$last_command" "$output" "$query" "$clipboard" "$with_context"
 
     # get the command to be executed from the file
     local command_file_path="$CHAT_COMMAND_PATH/command_to_execute.txt"

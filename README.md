@@ -2,57 +2,54 @@
 
 Do you sometimes forget how exactly to write a command in the terminal? 
 
-Do your commands sometimes not work because an ubiquitous package is not installed, or a git repo is not initialized?
+Do your commands sometimes not work because a ubiquitous package is not installed, or a git repo is not initialized?
 
 Then you are in the right place, as this simple command will offer a quick fix to your problems by using an LLM!
 
-## Use cases
+## Usage
 
-1. A command didn't work
+1. Call `chat` after a command that didn't work, and it will provide potential fixes
 
 ```
-~
-❯ git push
+$ git push
 fatal: not a git repository (or any of the parent directories): .git
 
-~
-❯ chat
-Rerunning: git push
-Attempting to fix the last command.
-Select a command to execute:
-1. git init
-2. git remote add origin <repository_url>
-3. git push origin master
-Enter the index of the command to execute:
+$ chat
+🔄 Rerunning: git push
+🤖 Generating suggestions based on the provided query...
+ℹ️ Suggested command: git init
+❔ Execute? ([y]/n/<new instructions>):
 ```
 
 The script reruns[^1] the last command to obtain the output and act accordingly.
 
-2. You forgot the exact command
+2. You know what you are doing, but forgot the exact command
 
 ```
-~
-❯ docker ps
-CONTAINER ID   IMAGE                                         COMMAND                  CREATED        STATUS        PORTS     NAMES
-9ae291b3886a   nvidia/cuda:11.3.1-cudnn8-devel-ubuntu18.04   "/opt/nvidia/nvidia_…"   39 hours ago   Up 38 hours             zealous_tesla
-
-~
-❯ chat "connect to docker"
-Rerunning: docker ps
-Generating suggestions based on the provided query.
-Suggested command: docker exec -it zealous_tesla bash
-Execute? ([y]/n)
-(base) root@9ae291b3886a:/#
+$ chat "bash into docker container"
+⏭️ This command was the last executed by 'chat', skipping rerun.
+🤖 Generating suggestions based on the provided query...
+ℹ️ Suggested command: docker ps # for context
+❔ Execute? ([y]/n/<new instructions>):
+CONTAINER ID   IMAGE        COMMAND                  CREATED        STATUS       PORTS                    NAMES
+f89482811c21   g_grouping   "/opt/nvidia/nvidia_…"   35 hours ago   Up 7 hours   0.0.0.0:5000->5000/tcp   boring_black
+📝 Context obtained, calling chat again.
+🤖 Analyzing the context...
+ℹ️ Suggested command: docker exec -it boring_black bash
+❔ Execute? ([y]/n/<new instructions>):
+(gaussian_grouping) root@f89482811c21:/#
 ```
+
+Notice that `chat` first obtains necessary context, and only then proceeds to fulfill the request. 
+Also, all `# for context` commands automatically trigger `chat` again, so that you don't have to!
 
 3. Many more features might be coming!
 
 ## Installation
 
-1. Clone the repo
-2. Set `$CHAT_COMMAND_PATH` (for example `export CHAT_COMMAND_PATH="$HOME/chat_command"`)
-3. Run `install_chat_command.sh`
-4. Add `source "$CHAT_COMMAND_PATH"/chat_wrapper.sh` (and the `export CHAT_COMMAND_PATH`) to your `.bashrc`
-5. Obtain an OpenAI API key and add `export OPENAI_API_KEY="key"` to your `.bashrc`
+1. `git clone https://github.com/mikhail-vlasenko/chat-command.git && cd chat-command`
+2. `python3 setup.py`
+3. Follow the installation instructions
+4. Restart your shell
 
 [^1]: Because it is near-impossible to get the output of the previous commands in the shell

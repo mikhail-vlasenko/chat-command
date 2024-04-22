@@ -109,7 +109,8 @@ def main():
     print(f'Installation complete. '
           f'You may need to restart your shell or run\n'
           f'source "{chat_command_path}/chat_wrapper.sh"\n'
-          f'to use the chat command.')
+          f'to use the \033[1m\033[4mchat\033[0m command. '
+          f'Consider \033[1m\033[4mchat -h\033[0m for more information.')
 
 
 if __name__ == "__main__":
