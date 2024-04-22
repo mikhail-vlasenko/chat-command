@@ -15,7 +15,7 @@ logging.basicConfig(
 )
 
 
-SYSTEM_PROMPT = """
+SYSTEM_PROMPT = f"""
 You are a helpful expert that assists the user with shell commands.
 Your response should contain only the commands. No explanations or additional information.
 All commands that need to be executed together should be on the same line.
@@ -24,6 +24,10 @@ The commands should be complete and executable as they are. So do not use placeh
 
 If, given the context, multiple responses are equally likely, output up to 3 possible variants, separated by the new line characters.
 In case you believe more context is needed, produce a command that, when executed, would provide this context as its output. Append \"# for context\" at the end of such command.
+{examples.context_request()}
+
+If you provide multiple suggestions in one response, make sure they are significantly different from each other, and none of them repeats the command that you need to fix.
+It is unlikely the user wants 3 different ways to obtain more context: mix in a potential solution as well.
 """
 
 
@@ -56,7 +60,7 @@ class ChatCommand:
         # we dont need to mention it after our request, as it will be in the chat history already
         self.dont_mention_last_command = self.last_chat_command == self.last_command and self.last_output == ""
 
-        self.system_prompt = SYSTEM_PROMPT + "\n" + examples.context_request()
+        self.system_prompt = SYSTEM_PROMPT
         self.messages = self.init_chat_history()
 
     def get_api_response(self, data):
@@ -311,8 +315,11 @@ def main():
                         help="This is a follow-up request that provides context")
 
     args = parser.parse_args()
+    # unpack the values
     args.clipboard = bool(args.clipboard)
     args.with_context = bool(args.with_context)
+    if args.query == "\"\"":
+        args.query = ""
 
     chat = ChatCommand(args.command, args.output)
     if args.with_context:
