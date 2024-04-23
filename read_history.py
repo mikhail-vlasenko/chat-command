@@ -1,7 +1,7 @@
 import os.path
 import pickle
 
-from basic_chat import ChatCommand
+from chat_command import ChatCommand
 
 
 def make_bold(text):
