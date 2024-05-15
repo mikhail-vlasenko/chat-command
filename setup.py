@@ -40,7 +40,7 @@ def check_and_set_api_key():
 
 def update_shell_config(chat_command_path, api_key, persistent_flag=False):
     detected_profile_file = '~/.bashrc'
-    if os.getenv('SHELL').endswith('zsh') and os.path.exists(os.path.expanduser('~/.zshrc')):
+    if os.getenv('SHELL', '').endswith('zsh') and os.path.exists(os.path.expanduser('~/.zshrc')):
         detected_profile_file = '~/.zshrc'
     shell_config_options = {
         '1': detected_profile_file,
