@@ -21,12 +21,25 @@ function chat() {
         read -r query clipboard no_exec with_context <<< "$all_args"
     fi
 
-    local last_command=$(fc -ln -1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') # Trim whitespaces
+    # find the most recent non-chat command
+    local command_found=false
+    local i=1
+
+    while (( i <= 3 )); do
+        local last_command=$(fc -ln -$i -$i | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') # Trim whitespaces
+
+         # Check if the command does not start with "chat"
+        if [[ ! "$last_command" =~ ^chat ]]; then
+            command_found=true
+            break
+        fi
+        ((i++))
+    done
+
     local output="<output is not available>"
 
-    # Check if the last command starts with "chat "
-    if [[ "$last_command" =~ ^[[:space:]]*chat[[:space:]] ]]; then
-        echo "⏭️ Refusing to rerun 'chat' command."
+    if ! $command_found; then
+        echo "⏭️ No non-chat command found in the last 3 commands."
     # Check if the last command is the same as the last command suggested and executed by 'chat',
     # and it is not run often (more than once in the last 5 commands).
     # Then, we can skip it
