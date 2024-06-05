@@ -3,11 +3,10 @@ import os
 import requests
 import argparse
 import logging
-import time
 import pickle
 
 import examples
-
+from config import Config
 
 logging.basicConfig(
     filename=f'{os.getenv("CHAT_COMMAND_PATH")}/basic.log',
@@ -33,24 +32,7 @@ It is unlikely the user wants 3 different ways to obtain more context: mix in a 
 
 class ChatCommand:
     def __init__(self, last_command, last_output):
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        if not self.api_key:
-            print("❌ OpenAI API key not found. Please set the OPENAI_API_KEY environment variable.")
-            sys.exit(1)
-
-        self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
-        self.path = os.getenv("CHAT_COMMAND_PATH")
-
-        self.result_file_path = os.path.join(self.path, 'command_to_execute.txt')
-        cond_id = os.getenv("CHAT_COMMAND_CONV_ID")
-        if cond_id:
-            self.conv_id = int(cond_id)
-        else:
-            self.conv_id = int(time.time())
-        self.history_file_path = os.path.join(self.path, "chat_history", f"{self.conv_id}.pkl")
+        self.config = Config()
 
         self.last_chat_command = os.getenv("CHAT_COMMAND_LAST_COMMAND", "")
         self.last_chat_output = self.truncate_output(os.getenv("CHAT_COMMAND_LAST_OUTPUT", ""))
@@ -65,7 +47,7 @@ class ChatCommand:
 
     def get_api_response(self, data):
         request_data = {
-            "model": "gpt-3.5-turbo",
+            "model": self.config.model,
             "max_tokens": 200,
             "temperature": 0.,
         }
@@ -73,7 +55,7 @@ class ChatCommand:
         url = "https://api.openai.com/v1/chat/completions"
         logging.info(f"Asking {request_data['model']} for suggestions.")
         logging.info(f"Sending request with prompt:\n{request_data['messages'][-1]['content']}")
-        response = requests.post(url, json=request_data, headers=self.headers)
+        response = requests.post(url, json=request_data, headers=self.config.headers)
         logging.info(f"Received response: {response.json()}")
         return response.json()
 
@@ -203,8 +185,8 @@ class ChatCommand:
         # cut off the comment
         command = command.split("#")[0].strip()
 
-        with open(self.result_file_path, 'w') as file:
-            file.write(f"{command}\n{self.conv_id}\n{int(context_flag)}\n")
+        with open(self.config.result_file_path, 'w') as file:
+            file.write(f"{command}\n{self.config.conv_id}\n{int(context_flag)}\n")
         logging.info(f"Command written to file: {command}")
         self.write_history()
 
@@ -216,9 +198,9 @@ class ChatCommand:
         """
         chat_history = [{"role": "system", "content": self.system_prompt}]
         if os.environ.get("CHAT_COMMAND_CONV_ID"):
-            with open(self.history_file_path, 'rb') as file:
+            with open(self.config.history_file_path, 'rb') as file:
                 chat_history.extend(pickle.load(file))
-            logging.info(f"Chat history loaded from file: {self.history_file_path}")
+            logging.info(f"Chat history loaded from file: {self.config.history_file_path}")
         return chat_history
 
     def init_prompt(self, include_last_command=True):
@@ -243,7 +225,7 @@ class ChatCommand:
 
     def write_history(self):
         # system prompt is not written, as it is assumed to be always the same
-        with open(self.history_file_path, 'wb') as file:
+        with open(self.config.history_file_path, 'wb') as file:
             pickle.dump(self.messages[1:], file)
 
     def extract_suggestions(self, response):

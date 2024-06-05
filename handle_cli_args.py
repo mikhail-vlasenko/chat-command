@@ -1,11 +1,9 @@
 import argparse
 
+from config import Config, BOLD, RESET, UNDERLINE
+
 
 def main():
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-    RESET = '\033[0m'
-
     parser = argparse.ArgumentParser(
         prog="chat",
         description=
@@ -25,7 +23,8 @@ def main():
         f"2. {BOLD}{UNDERLINE}chatInstall{RESET}, which copies an express installation string to your clipboard. "
         f"This can be useful when you just logged into a new machine or a docker container.\n"
         f"3. {BOLD}{UNDERLINE}chatHistory{RESET}, which lets you inspect you current conversation in full.\n",
-        epilog="🌟 Don't forget to star the project on GitHub if you like it!\n"
+        epilog=Config.configuration_help_string() +
+               "\n🌟 Don't forget to star the project on GitHub if you like it!\n"
                "https://github.com/mikhail-vlasenko/chat-command",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

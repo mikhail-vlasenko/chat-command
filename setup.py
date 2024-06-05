@@ -2,6 +2,7 @@ import os
 import shutil
 import re
 import argparse
+import sys
 
 
 def check_and_set_chat_command_path(args_path):
@@ -45,7 +46,7 @@ def update_shell_config(chat_command_path, api_key, persistent_flag=False):
     shell_config_options = {
         '1': detected_profile_file,
         '2': 'Enter custom path',
-        '3': 'Skip this step'
+        '3': 'Skip this step (no persistent configuration)'
     }
 
     if persistent_flag:
@@ -65,7 +66,7 @@ def update_shell_config(chat_command_path, api_key, persistent_flag=False):
 
     settings = [
         f'export CHAT_COMMAND_PATH="{chat_command_path}"',
-        f'export CHAT_COMMAND_PYTHON="$(which python3)"',
+        f'export CHAT_COMMAND_PYTHON="{sys.executable}"',
         f'source $CHAT_COMMAND_PATH"/chat_wrapper.sh"',
         f'export OPENAI_API_KEY="{api_key}"'
     ]
