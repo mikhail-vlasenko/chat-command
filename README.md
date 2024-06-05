@@ -48,8 +48,8 @@ Also, all `# for context` commands automatically trigger `chat` again, so that y
 ## Installation
 
 1. `git clone https://github.com/mikhail-vlasenko/chat-command.git && cd chat-command`
-2. `python3 setup.py`
-3. Follow the installation instructions
+2. `pip3 install -r requirements.txt`
+3. `python3 setup.py`
 4. Restart your shell
 
 [^1]: Because it is near-impossible to get the output of the previous commands in the shell
