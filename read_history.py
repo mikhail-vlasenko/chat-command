@@ -10,11 +10,11 @@ def make_bold(text):
 
 chat = ChatCommand('', '')
 
-if not os.path.exists(chat.history_file_path):
+if not os.path.exists(chat.config.history_file_path):
     print("No chat history found.")
     exit()
 
-with open(chat.history_file_path, 'rb') as file:
+with open(chat.config.history_file_path, 'rb') as file:
     messages = pickle.load(file)
     for message in messages:
         print(make_bold(message['role'] + ':'))
