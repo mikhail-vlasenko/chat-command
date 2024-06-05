@@ -52,11 +52,13 @@ class ChatCommand:
             "temperature": 0.,
         }
         request_data.update(data)
-        url = "https://api.openai.com/v1/chat/completions"
         logging.info(f"Asking {request_data['model']} for suggestions.")
         logging.info(f"Sending request with prompt:\n{request_data['messages'][-1]['content']}")
-        response = requests.post(url, json=request_data, headers=self.config.headers)
+        response = requests.post(self.config.api_url, json=request_data, headers=self.config.headers)
         logging.info(f"Received response: {response.json()}")
+        if response.status_code != 200:
+            print(f"❌ LLM request failed:\n {response.json()}")
+            sys.exit(1)
         return response.json()
 
     def make_prompt_fix_command(self, clipboard=False):
