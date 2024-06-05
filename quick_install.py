@@ -21,7 +21,7 @@ python3 setup.py --persistent &&
 cd .. &&
 rm -rf chat-command &&
 source ~/.bashrc &&
-echo -e "\\nInstallation complete. You can now use the chat command. \\U1F916"
+echo -e "\\n\\U1F680 Installation complete. You can now use the chat command. \\U1F916"
 """
 
 if __name__ == "__main__":

@@ -28,7 +28,7 @@ def copy_script_contents(chat_command_path):
     def ignore_some_files(directory, contents):
         ignored = ['__pycache__']
         for filename in contents:
-            if not filename == '.git' and filename.startswith('.') or filename.endswith('.pyc'):
+            if filename.startswith('.') or filename.endswith('.pyc'):
                 ignored.append(filename)
         return ignored
 
@@ -54,7 +54,7 @@ def update_shell_config(chat_command_path, api_key, persistent_flag=False):
     }
 
     if persistent_flag:
-        config_path = os.path.expanduser(shell_config_options.get('1', ''))
+        config_path = os.path.expanduser(shell_config_options['1'])
     else:
         print("Choose your shell configuration file for persistent installation:")
         for key, value in shell_config_options.items():
