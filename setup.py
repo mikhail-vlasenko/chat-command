@@ -25,10 +25,14 @@ def check_and_set_chat_command_path(args_path):
 def copy_script_contents(chat_command_path):
     script_dir = os.path.dirname(os.path.realpath(__file__))
 
-    def ignore_dot_files(directory, contents):
-        return [filename for filename in contents if filename.startswith('.')]
+    def ignore_some_files(directory, contents):
+        ignored = ['__pycache__']
+        for filename in contents:
+            if not filename == '.git' and filename.startswith('.') or filename.endswith('.pyc'):
+                ignored.append(filename)
+        return ignored
 
-    shutil.copytree(script_dir, chat_command_path, ignore=ignore_dot_files, dirs_exist_ok=True)
+    shutil.copytree(script_dir, chat_command_path, ignore=ignore_some_files, dirs_exist_ok=True)
 
 
 def check_and_set_api_key():
