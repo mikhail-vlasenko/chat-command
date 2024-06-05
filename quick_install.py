@@ -2,17 +2,24 @@ import pyperclip
 import os
 
 
-INSTALL_STRING = f"""sudo apt update &&
-sudo apt install git-all &&
+INSTALL_STRING = f"""
+if command -v sudo >/dev/null 2>&1; then
+    SUDO=sudo
+else
+    SUDO=""
+fi
+
+$SUDO apt update &&
+$SUDO apt install git-all &&
 git clone https://github.com/mikhail-vlasenko/chat-command.git &&
 cd chat-command &&
-sudo apt install python3-pip &&
+$SUDO apt install python3-pip &&
 pip3 install -r requirements.txt &&
 export CHAT_COMMAND_PATH="$HOME/.chat_command" &&
 export OPENAI_API_KEY="{os.getenv('OPENAI_API_KEY')}" &&
 python3 setup.py --persistent &&
-cd .. && 
-rm -rf chat-command && 
+cd .. &&
+rm -rf chat-command &&
 source ~/.bashrc &&
 echo -e "\\nInstallation complete. You can now use the chat command. \\U1F916"
 """
