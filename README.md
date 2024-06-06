@@ -38,6 +38,20 @@ f89482811c21   g_grouping   "/opt/nvidia/nvidia_…"   35 hours ago   Up 7 hours
 ℹ️ Suggested command: docker exec -it boring_black bash
 ❔ Execute? ([y]/n/<new instructions>):
 (gaussian_grouping) root@f89482811c21:/#
+
+
+$ chat "is apache active?"
+🔄 Rerunning: tmux
+🤖 Generating suggestions based on the provided query...
+ℹ Suggested command: systemctl status apache2.service # for context
+❔ Execute? ([y]/n/<new instructions>):
+○ apache2.service - The Apache HTTP Server
+     Loaded: loaded (/lib/systemd/system/apache2.service; disabled; vendor preset: enabled)
+     Active: inactive (dead)
+       Docs: https://httpd.apache.org/docs/2.4/
+📝 Context obtained, calling chat again.
+🤖 Analyzing the context...
+ℹ️ Suggested command: The Apache service is currently inactive (dead).
 ```
 
 Notice that `chat` first obtains necessary context, and only then proceeds to fulfill the request. 
