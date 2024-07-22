@@ -26,7 +26,7 @@ class Config:
             sys.exit(1)
 
         self.api_url = os.getenv("CHAT_COMMAND_API_URL", "https://api.openai.com/v1/chat/completions")
-        self.model = os.getenv("CHAT_COMMAND_MODEL", "gpt-3.5-turbo")
+        self.model = os.getenv("CHAT_COMMAND_MODEL", "gpt-4o-mini")
 
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -53,7 +53,7 @@ class Config:
             f"  - {BOLD}OPENAI_API_KEY{RESET}: Alternative API key if {BOLD}CHAT_COMMAND_API_KEY{RESET} is not set.\n"
             f"  - {BOLD}CHAT_COMMAND_API_URL{RESET}: The URL for the chat command API. Defaults to "
             f"\"https://api.openai.com/v1/chat/completions\"\n"
-            f"  - {BOLD}CHAT_COMMAND_MODEL{RESET}: The model used for completion. Defaults to \"gpt-3.5-turbo\"\n"
+            f"  - {BOLD}CHAT_COMMAND_MODEL{RESET}: The model used for completion. Defaults to \"gpt-4o-mini\"\n"
             f"  - {BOLD}CHAT_COMMAND_PATH{RESET}: The file path for storing chat command data. "
             f"By default, is set to \"~/.chat_command\" during installation.\n"
         )
